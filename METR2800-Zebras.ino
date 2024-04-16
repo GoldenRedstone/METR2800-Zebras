@@ -22,10 +22,12 @@
  * 3 - Gallop
  */
 enum Speed {
-  trot = 1,
+  trot = 4,
   canter = 2,
-  gallop = 3
+  gallop = 1
 };
+
+Speed speed = trot;
 
 // FT5116M Servos
 #define ARM_EXTENSION_PIN 23
@@ -54,13 +56,14 @@ int currentExtension = 0;
 int currentHeight = 0;
 int currentRotation = 0;
 
-bool latchOpen = False;
+bool latchOpen = false;
 
 void setup() {
-  // put your setup code here, to run once:
   arm_extension.attach(ARM_EXTENSION_PIN);
   elevator.attach(ELEVATOR_PIN);
-  // rotating_plate.attach(ROTATING_PLATE_PIN);
+
+  pinMode(ROTATING_PLATE_DIR, OUTPUT);
+  pinMode(ROTATING_PLATE_STEP, OUTPUT);
 
   int currentExtension = 0;
   int currentHeight = 0;
@@ -77,18 +80,28 @@ void changeHeightTo(int height) {
   currentHeight = height;
 }
 
-// void armRotateTo(int point) {
-//   rotating_plate.write(point);
-//   currentRotation = point;
-// }
+void armRotateTo(int point, int direction) {
+  if (direction == 1) {
+    digitalWrite(ROTATING_PLATE_DIR, HIGH); // Clockwise
+  } else if (direction == -1) {
+    digitalWrite(ROTATING_PLATE_DIR, LOW); // Anti-clockwise
+  } else {
+    direction = 0;
+  }
+  while (currentRotation != point) {
+    digitalWrite(ROTATING_PLATE_STEP, HIGH); // Move one step
+    currentRotation += direction;
+    delay(50);
+  }
+}
 
 void openLatch() {
   latch.write(0);
-  latchOpen = True;
+  latchOpen = true;
 }
 void closeLatch() {
   latch.write(180);
-  latchOpen = False;
+  latchOpen = false;
 }
 
 void loop() {
