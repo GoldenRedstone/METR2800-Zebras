@@ -46,17 +46,21 @@ enum Speed {
 
 Servo arm_extension;
 Servo elevator;
-Servo rotating_plate;
+// Servo rotating_plate;
+Servo latch;
+Servo tilt;
 
 int currentExtension = 0;
 int currentHeight = 0;
 int currentRotation = 0;
 
+bool latchOpen = False;
+
 void setup() {
   // put your setup code here, to run once:
   arm_extension.attach(ARM_EXTENSION_PIN);
   elevator.attach(ELEVATOR_PIN);
-  rotating_plate.attach(ROTATING_PLATE_PIN);
+  // rotating_plate.attach(ROTATING_PLATE_PIN);
 
   int currentExtension = 0;
   int currentHeight = 0;
@@ -73,9 +77,18 @@ void changeHeightTo(int height) {
   currentHeight = height;
 }
 
-void armRotateTo(int point) {
-  rotating_plate.write(point);
-  currentRotation = point;
+// void armRotateTo(int point) {
+//   rotating_plate.write(point);
+//   currentRotation = point;
+// }
+
+void openLatch() {
+  latch.write(0);
+  latchOpen = True;
+}
+void closeLatch() {
+  latch.write(180);
+  latchOpen = False;
 }
 
 void loop() {
