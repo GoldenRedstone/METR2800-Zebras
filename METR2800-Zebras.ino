@@ -1,4 +1,4 @@
-#include <Servo.h>
+#include <ESP32Servo.h>
 /*
     \\/),
    ,'.' /,
@@ -12,7 +12,7 @@
  ====================
    METR2800 ZEBRAS
  Alistair, Oliver, Bailey, Wilbur, Gideon, Jestin
- Modified 2024-04-12
+ Modified 2024-04-15
  By Gideon McKinlay
  */
 
@@ -21,35 +21,35 @@
  * 2 - Canter
  * 3 - Gallop
  */
-enum Speed = {
+enum Speed {
   trot = 1,
   canter = 2,
   gallop = 3
 };
 
 // FT5116M Servos
-#define ARM_EXTENSION_PIN = 23;
-#define ELEVATOR_PIN = 11;
+#define ARM_EXTENSION_PIN 23
+#define ELEVATOR_PIN 11
 // Stepper
-#define ROTATING_PLATE_DIR = 12;
-#define ROTATING_PLATE_STEP = 14;
-#define STEPS = 200;
+#define ROTATING_PLATE_DIR 12
+#define ROTATING_PLATE_STEP 14
+#define STEPS 200
 // FIT0521 DC
-#define DC_MOTOR_PINA = 26;
-#define DC_MOTOR_PINB = 27;
+#define DC_MOTOR_PINA 26
+#define DC_MOTOR_PINB 27
 // Servo
-#define LATCH_SERVO_PIN = 4
-#define TILT_SERVO_PIN = 5
+#define LATCH_SERVO_PIN 4
+#define TILT_SERVO_PIN 5
 // Limit Switch
-#define LIMIT_SWITCH_PIN = 13
-#define IR_SENSOR_PIN = 18
+#define LIMIT_SWITCH_PIN 13
+#define IR_SENSOR_PIN 18
 
 Servo arm_extension;
 Servo elevator;
 Servo rotating_plate;
 
 int currentExtension = 0;
-int currentHeight = 0;  
+int currentHeight = 0;
 int currentRotation = 0;
 
 void setup() {
@@ -64,13 +64,13 @@ void setup() {
 }
 
 void armExtendTo(int distance) {
-  arm_extension.write(height);
+  arm_extension.write(distance);
   currentExtension = distance;
 }
 
 void changeHeightTo(int height) {
   elevator.write(height);
-  currentHeight = height
+  currentHeight = height;
 }
 
 void armRotateTo(int point) {
@@ -78,7 +78,7 @@ void armRotateTo(int point) {
   currentRotation = point;
 }
 
-void loop(){
+void loop() {
   /*
   START​
   Starts on the left side closest to the tallest tree pod.​
