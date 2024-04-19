@@ -52,9 +52,9 @@ Servo elevator;
 Servo latch;
 Servo tilt;
 
-int currentExtension = 0;
-int currentHeight = 0;
-int currentRotation = 0;
+uint16_t currentExtension = 0;
+uint16_t currentHeight = 0;
+uint8_t currentRotation = 0;
 
 bool latchOpen = false;
 
@@ -65,28 +65,31 @@ void setup() {
   pinMode(ROTATING_PLATE_DIR, OUTPUT);
   pinMode(ROTATING_PLATE_STEP, OUTPUT);
 
-  int currentExtension = 0;
-  int currentHeight = 0;
-  int currentRotation = 0;
+  currentExtension = 0;
+  currentHeight = 0;
+  currentRotation = 0;
 }
 
-void armExtendTo(int distance) {
+void armExtendTo(uint16_t distance) {
   arm_extension.write(distance);
   currentExtension = distance;
 }
 
-void changeHeightTo(int height) {
+void changeHeightTo(uint16_t height) {
   elevator.write(height);
   currentHeight = height;
 }
 
-void armRotateTo(int point, int direction) {
-  if (direction == 1) {
-    digitalWrite(ROTATING_PLATE_DIR, HIGH); // Clockwise
-  } else if (direction == -1) {
-    digitalWrite(ROTATING_PLATE_DIR, LOW); // Anti-clockwise
-  } else {
-    direction = 0;
+void armRotateTo(uint8_t point, uint8_t direction) {
+  switch(direction) {
+    case 1:
+      digitalWrite(ROTATING_PLATE_DIR, HIGH); // Clockwise
+      break;
+    case -1:
+      digitalWrite(ROTATING_PLATE_DIR, LOW); // Anti-clockwise
+      break;
+    default:
+      break;
   }
   while (currentRotation != point) {
     digitalWrite(ROTATING_PLATE_STEP, HIGH); // Move one step
