@@ -12,18 +12,14 @@
  ====================
    METR2800 ZEBRAS
  Alistair, Oliver, Bailey, Wilbur, Gideon, Jestin
- Modified 2024-04-15
+ Modified 2024-04-19
  By Gideon McKinlay
  */
 
-/*
- * 1 - Trot
- * 2 - Canter
- * 3 - Gallop
- */
 enum Speed {
-  trot = 4,
-  canter = 2,
+  walk = 100,
+  trot = 10,
+  canter = 5,
   gallop = 1
 };
 
@@ -48,7 +44,6 @@ Speed speed = trot;
 
 Servo arm_extension;
 Servo elevator;
-// Servo rotating_plate;
 Servo latch;
 Servo tilt;
 
@@ -68,6 +63,8 @@ void setup() {
   currentExtension = 0;
   currentHeight = 0;
   currentRotation = 0;
+
+  pinMode(LIMIT_SWITCH_PIN, INPUT_PULLDOWN);
 }
 
 void armExtendTo(uint16_t distance) {
@@ -81,6 +78,7 @@ void changeHeightTo(uint16_t height) {
 }
 
 void armRotateTo(uint8_t point, uint8_t direction) {
+  // Choose the direction
   switch(direction) {
     case 1:
       digitalWrite(ROTATING_PLATE_DIR, HIGH); // Clockwise
@@ -93,8 +91,8 @@ void armRotateTo(uint8_t point, uint8_t direction) {
   }
   while (currentRotation != point) {
     digitalWrite(ROTATING_PLATE_STEP, HIGH); // Move one step
-    currentRotation += direction;
-    delay(50);
+    currentRotation = (currentRotation+direction) % STEPS;
+    delay(speed);
   }
 }
 
@@ -107,7 +105,22 @@ void closeLatch() {
   latchOpen = false;
 }
 
+void driveToSide(uint8_t side) {
+  // Set motor to drive
+  digitalWrite(DC_MOTOR_PINA, HIGH);
+  // Wait until correct switch is pressed
+  while (!digitalRead(LIMIT_SWITCH_PIN)) {
+    delay(50);
+  }
+  // Set motor to stop
+  digitalWrite(DC_MOTOR_PINA, LOW);
+}
+
 void loop() {
+  while (!digitalRead(LIMIT_SWITCH_PIN)) {
+    delay(50);
+  }
+  
   /*
   START​
   Starts on the left side closest to the tallest tree pod.​
