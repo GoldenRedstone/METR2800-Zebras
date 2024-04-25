@@ -1,4 +1,5 @@
 #include <ESP32Servo.h>
+#include <thread>
 /*
     \\/),
    ,'.' /,
@@ -42,8 +43,8 @@ Speed speed = trot;
 #define LIMIT_SWITCH_PIN 13
 #define IR_SENSOR_PIN 18
 
-#define CLOCKWISE HIGH;
-#define ANTICLOCKWISE LOW;
+#define CLOCKWISE HIGH
+#define ANTICLOCKWISE LOW
 
 Servo arm_extension;
 Servo elevator;
@@ -55,6 +56,22 @@ uint16_t currentHeight = 0;
 uint8_t currentRotation = 0;
 
 bool latchOpen = false;
+
+int sign(int x) {
+  /*
+   * Returns the sign of a number.
+   * x > 0: 1
+   * x = 0: 0
+   * x < 0: -1
+   */
+  if (x == 0) {
+    return 0;
+  }
+  if (x > 0) {
+    return 1;
+  }
+  return -1;
+}
 
 void setup() {
   arm_extension.attach(ARM_EXTENSION_PIN);
@@ -71,7 +88,7 @@ void setup() {
 }
 
 void armExtendTo(uint16_t distance) {
-  for (int i = currentExtension; i != distance; i += sign(pos-currentExtension)) {
+  for (int i = currentExtension; i != distance; i += sign(distance-currentExtension)) {
     arm_extension.write(i);
     currentExtension = i;
     delay(speed);
@@ -80,7 +97,7 @@ void armExtendTo(uint16_t distance) {
 }
 
 void changeHeightTo(uint16_t height) {
-  for (int i = currentHeight; i != height; i += sign(pos-currentHeight)) {
+  for (int i = currentHeight; i != height; i += sign(height-currentHeight)) {
     elevator.write(i);
     currentHeight = i;
     delay(speed);
@@ -94,6 +111,8 @@ void armRotateTo(uint8_t point, uint8_t direction) {
   // TODO: Use >= or <= for comparison
   while (currentRotation != point) {
     digitalWrite(ROTATING_PLATE_STEP, HIGH); // Move one step
+    delay(speed);
+    digitalWrite(ROTATING_PLATE_STEP, LOW); // Move one step
     currentRotation = (currentRotation+direction) % STEPS;
     delay(speed);
   }
