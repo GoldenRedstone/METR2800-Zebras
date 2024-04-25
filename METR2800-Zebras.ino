@@ -119,11 +119,74 @@ void driveToSide() {
   digitalWrite(DC_MOTOR_PINA, LOW);
 }
 
+void moveToPosition(uint8_t rotation, uint8_t direction, uint8_t extension, uint8_t elevation) {
+  std::thread t1(armRotateTo, rotation, direction);
+  std::thread t2(armExtendTo, extension);
+  std::thread t3(changeHeightTo, elevation);
+  t1.join();
+  t2.join();
+  t3.join();
+}
+
 void loop() {
+
+  // Wait until operation is started
   while (!digitalRead(LIMIT_SWITCH_PIN)) {
     delay(50);
   }
-  
+
+  // Move to first target
+  moveToPosition(0, CLOCKWISE, 180, 180);
+  closeLatch();
+  // Move to hole
+  moveToPosition(90, ANTICLOCKWISE, 90, 0);
+  openLatch();
+  // Move to second target
+  moveToPosition(0, CLOCKWISE, 180, 180);
+  closeLatch();
+  // Move to hole
+  moveToPosition(90, ANTICLOCKWISE, 90, 0);
+  openLatch();
+  // Move to third target
+  moveToPosition(0, CLOCKWISE, 180, 180);
+  closeLatch();
+  // Move to hole
+  moveToPosition(90, ANTICLOCKWISE, 90, 0);
+  openLatch();
+
+  // Drive to opposite side
+  std::thread t1(driveToSide);
+  std::thread t2(armRotateTo, 0, CLOCKWISE);
+  std::thread t3(armExtendTo, 180);
+  std::thread t4(changeHeightTo, 180);
+  t1.join();
+  t2.join();
+  t3.join();
+  t4.join();
+
+  // Move to first target
+  moveToPosition(0, CLOCKWISE, 180, 180);
+  closeLatch();
+  // Move to hole
+  moveToPosition(90, ANTICLOCKWISE, 90, 0);
+  openLatch();
+  // Move to second target
+  moveToPosition(0, CLOCKWISE, 180, 180);
+  closeLatch();
+  // Move to hole
+  moveToPosition(90, ANTICLOCKWISE, 90, 0);
+  openLatch();
+  // Move to third target
+  moveToPosition(0, CLOCKWISE, 180, 180);
+  closeLatch();
+  // Move to hole
+  moveToPosition(90, ANTICLOCKWISE, 90, 0);
+  openLatch();
+
+  while (true) {
+    // Do nothing
+  }
+
   /*
   START​
   Starts on the left side closest to the tallest tree pod.​
