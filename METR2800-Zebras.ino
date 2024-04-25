@@ -42,6 +42,9 @@ Speed speed = trot;
 #define LIMIT_SWITCH_PIN 13
 #define IR_SENSOR_PIN 18
 
+#define CLOCKWISE HIGH;
+#define ANTICLOCKWISE LOW;
+
 Servo arm_extension;
 Servo elevator;
 Servo latch;
@@ -68,27 +71,27 @@ void setup() {
 }
 
 void armExtendTo(uint16_t distance) {
-  arm_extension.write(distance);
+  for (int i = currentExtension; i != distance; i += sign(pos-currentExtension)) {
+    arm_extension.write(i);
+    currentExtension = i;
+    delay(speed);
+  }
   currentExtension = distance;
 }
 
 void changeHeightTo(uint16_t height) {
-  elevator.write(height);
+  for (int i = currentHeight; i != height; i += sign(pos-currentHeight)) {
+    elevator.write(i);
+    currentHeight = i;
+    delay(speed);
+  }
   currentHeight = height;
 }
 
 void armRotateTo(uint8_t point, uint8_t direction) {
   // Choose the direction
-  switch(direction) {
-    case 1:
-      digitalWrite(ROTATING_PLATE_DIR, HIGH); // Clockwise
-      break;
-    case -1:
-      digitalWrite(ROTATING_PLATE_DIR, LOW); // Anti-clockwise
-      break;
-    default:
-      break;
-  }
+  digitalWrite(ROTATING_PLATE_DIR, direction);
+  // TODO: Use >= or <= for comparison
   while (currentRotation != point) {
     digitalWrite(ROTATING_PLATE_STEP, HIGH); // Move one step
     currentRotation = (currentRotation+direction) % STEPS;
@@ -105,7 +108,7 @@ void closeLatch() {
   latchOpen = false;
 }
 
-void driveToSide(uint8_t side) {
+void driveToSide() {
   // Set motor to drive
   digitalWrite(DC_MOTOR_PINA, HIGH);
   // Wait until correct switch is pressed
