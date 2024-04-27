@@ -1,4 +1,5 @@
 #include <ESP32Servo.h>
+#include <Stepper.h>
 #include <thread>
 /*
     \\/),
@@ -13,7 +14,7 @@
  ====================
    METR2800 ZEBRAS
  Alistair, Oliver, Bailey, Wilbur, Gideon, Jestin
- Modified 2024-04-19
+ Modified 2024-04-26
  By Gideon McKinlay
  */
 
@@ -34,13 +35,14 @@ Speed speed = trot;
 #define ROTATING_PLATE_STEP 14
 #define STEPS 200
 // FIT0521 DC
-#define DC_MOTOR_PINA 26
-#define DC_MOTOR_PINB 27
+#define DC_MOTOR_PIN1 26
+#define DC_MOTOR_PIN2 27
+#define DC_MOTOR_ENABLE 13
 // Servo
 #define LATCH_SERVO_PIN 4
 #define TILT_SERVO_PIN 5
 // Limit Switch
-#define LIMIT_SWITCH_PIN 13
+#define LIMIT_SWITCH_PIN 35
 #define IR_SENSOR_PIN 18
 
 #define CLOCKWISE HIGH
@@ -64,21 +66,26 @@ int sign(int x) {
    * x = 0: 0
    * x < 0: -1
    */
-  if (x == 0) {
-    return 0;
-  }
   if (x > 0) {
     return 1;
   }
-  return -1;
+  if (x < 0) {
+    return -1;
+  }
+  return 0;
 }
 
 void setup() {
+  // Attach servos to pins
   arm_extension.attach(ARM_EXTENSION_PIN);
   elevator.attach(ELEVATOR_PIN);
 
   pinMode(ROTATING_PLATE_DIR, OUTPUT);
   pinMode(ROTATING_PLATE_STEP, OUTPUT);
+  
+  pinMode(DC_MOTOR_PIN1, OUTPUT);
+  pinMode(DC_MOTOR_PIN2, OUTPUT);
+  pinMode(DC_MOTOR_ENABLE, OUTPUT);
 
   currentExtension = 0;
   currentHeight = 0;
@@ -128,14 +135,18 @@ void closeLatch() {
 }
 
 void driveToSide() {
-  // Set motor to drive
   digitalWrite(DC_MOTOR_PINA, HIGH);
+  digitalWrite(DC_MOTOR_PINB, LOW);
+  // Set motor to drive
+  digitalWrite(DC_MOTOR_ENABLE, HIGH);
   // Wait until correct switch is pressed
   while (!digitalRead(LIMIT_SWITCH_PIN)) {
     delay(50);
+    Serial.println(digitalRead(LIMIT_SWITCH_PIN));
   }
+  Serial.println("PRESSED");
   // Set motor to stop
-  digitalWrite(DC_MOTOR_PINA, LOW);
+  digitalWrite(DC_MOTOR_ENABLE, LOW);
 }
 
 void moveToPosition(uint8_t rotation, uint8_t direction, uint8_t extension, uint8_t elevation) {
@@ -203,37 +214,6 @@ void loop() {
   openLatch();
 
   while (true) {
-    // Do nothing
+    delay(1000);
   }
-
-  /*
-  START​
-  Starts on the left side closest to the tallest tree pod.​
-  Arm is in retracted state.​
-
-  Arm pivots towards the first ground pod.​
-  Arm extends to the required length.​
-
-  Arm scoops up the first ground pod.​
-
-  Arm pivots to the raised tree pod.​
-  Elevator raises the arm to the required height for the tree pod.​
-  Arm retracts to the required length.​
-
-  Arm scoops up the tree pod.​
-
-  Arm pivots to the other ground pod.​
-  Elevator lowers the arm to the required height for the ground pod.​
-
-  Arm scoops up the other ground pod.​
-
-  Robot drives towards the hole until an IR sensor detects the incinerator hole.​
-
-  Latch opens to deposit all three collected pods into the incinerator hole.​
-
-  Robot drives towards the uncollected pods until the contact switch detects the raised section.​
-  Arm pivots towards the first ground pod on the new side.​
-
-  Steps 2 to 8 are repeated for the second side.
-  */
 }
