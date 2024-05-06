@@ -30,7 +30,7 @@ Speed speed = trot;
 // FT5116M Servos
 #define ARM_EXTENSION_PIN 23
 #define ELEVATOR_PIN 11
-// Stepper
+// A4988 Stepper
 #define ROTATING_PLATE_DIR 12
 #define ROTATING_PLATE_STEP 14
 #define STEPS 200
@@ -137,16 +137,31 @@ void closeLatch() {
 void driveToSide() {
   digitalWrite(DC_MOTOR_PINA, HIGH);
   digitalWrite(DC_MOTOR_PINB, LOW);
+
   // Set motor to drive
   digitalWrite(DC_MOTOR_ENABLE, HIGH);
+
   // Wait until correct switch is pressed
-  while (!digitalRead(LIMIT_SWITCH_PIN)) {
-    delay(50);
-    Serial.println(digitalRead(LIMIT_SWITCH_PIN));
-  }
-  Serial.println("PRESSED");
+  waitForLimitPress();
+  
   // Set motor to stop
   digitalWrite(DC_MOTOR_ENABLE, LOW);
+}
+
+void waitForLimitPress() {
+  while (!digitalRead(LIMIT_SWITCH_PIN)) {
+    delay(50);
+    Serial.println("Lim: " + digitalRead(LIMIT_SWITCH_PIN));
+  }
+  Serial.println("Lim: PRESSED");
+}
+
+void waitForIRSense() {
+  while (digitalRead(IR_SENSOR_PIN)) {
+    delay(50);
+    Serial.println(" IR: " + !digitalRead(IR_SENSOR_PIN));
+  }
+  Serial.println(" IR: DETECTED");
 }
 
 void moveToPosition(uint8_t rotation, uint8_t direction, uint8_t extension, uint8_t elevation) {
