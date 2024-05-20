@@ -149,7 +149,7 @@ void openLatch(int16_t angle = 0) {
     latchOpen = true;
 }
 
-void closeLatch(int16_t angle = 90) {
+void closeLatch(int16_t angle = 60) {
     /*
      * closeLatch()
      * ===========
@@ -159,7 +159,7 @@ void closeLatch(int16_t angle = 90) {
     for (uint16_t x = 30; x > 0; x--) {
       latch1.write(angle - (angle*x)/30);
       latch2.write(angle - (angle*x)/30);
-      delay(freq);
+      delay(10);
     }
     latch1.write(angle);
     latch2.write(angle);
@@ -184,7 +184,7 @@ void waitForLimitPress(int32_t timeout = 0) {
     }
 }
 
-void waitForIRSense() {
+void waitForIRSense(int32_t timeout = 0) {
     /*
      * waitForLimitPress()
      * ===================
@@ -215,7 +215,7 @@ void driveToSide() {
     digitalWrite(DC_MOTOR1_ENABLE, HIGH);
     digitalWrite(DC_MOTOR2_ENABLE, HIGH);
     // Wait until switch is pressed
-    waitForLimitPress();
+    waitForLimitPress(12000);
     // Set motor to stop
     digitalWrite(DC_MOTOR1_ENABLE, LOW);
     digitalWrite(DC_MOTOR2_ENABLE, LOW);
