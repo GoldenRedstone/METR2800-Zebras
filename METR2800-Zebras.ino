@@ -18,10 +18,6 @@ mrf  (_(_.'(_.'(_.'
  By Gideon McKinlay
  */
 
-enum Speed { walk = 10, trot = 5, canter = 2, gallop = 1 };
-
-Speed speed = trot;
-
 // FT5116M Servos
 #define ARM_EXTENSION_PIN 23
 #define ELEVATOR1_PIN 33
@@ -36,10 +32,13 @@ Speed speed = trot;
 // FIT0521 DC
 #define DC_MOTOR_PIN1 26
 #define DC_MOTOR_PIN2 27
-#define DC_MOTOR_ENABLE 14
+#define DC_MOTOR_PIN3 22
+#define DC_MOTOR_PIN4 25
+#define DC_MOTOR1_ENABLE 14
+#define DC_MOTOR2_ENABLE 34
 // SG90 Servo
-#define LATCH_SERVO_PIN 4
-#define TILT_SERVO_PIN 5
+#define LATCH_SERVO1_PIN 4
+#define LATCH_SERVO2_PIN 5
 // Limit Switch
 #define LIMIT_SWITCH_PIN 35
 #define IR_SENSOR_PIN 18
@@ -47,22 +46,27 @@ Speed speed = trot;
 #define CLOCKWISE HIGH
 #define ANTICLOCKWISE LOW
 
+// Servos
 Servo arm_extension;
 Servo elevator1;
 Servo elevator2;
-Servo latch;
+Servo latch1;
+Servo latch2;
 
-int8_t ex_speed = 50;
-int8_t el_speed = 20;
-int8_t freq = 1;
+// Set speeds
+int8_t ex_speed = 50;   // Speed of extending arm. Larger is faster. 50 is almost max.
+int8_t el_speed = 20;   // Speed of elevator. Larger is faster. 50 is almost max.
+int8_t freq = 1;        // Frequency of rotating plate. Smaller is faster.
 
-float grav_compensation = 1.3;
+float grav_comp = 1.3;  // Compensate for elevator faster going down.
 
 int16_t currentExtension;
 int16_t currentHeight;
 int16_t currentRotation;
 bool latchOpen;
 
+
+// Utility functions.
 int8_t sign(int16_t x) {
    /*
     * sign()
@@ -91,18 +95,23 @@ int16_t degToCycles(float degrees) {
     return (n + 0.5f);
 }
 
+
+// Motion is broken into multiple functions.
+
 void armExtendBy(int16_t duration) {
     /*
      * armExtendBy()
      * =============
      * Extends the arm radially for the given duration.
      * duration is an integer number in ms.
+     * Negative extends, and positive retracts.
      */
     int8_t direction = sign(duration);
     int16_t magnitude = (50 * abs(duration)) / el_speed;
     arm_extension.write(90 + ex_speed * direction);
     delay(magnitude);
     arm_extension.write(90);
+    currentExtension += duration;
 }
 
 void changeHeightBy(int16_t duration) {
@@ -120,6 +129,7 @@ void changeHeightBy(int16_t duration) {
     delay(magnitude);
     elevator1.write(90);
     elevator2.write(90);
+    currentHeight += duration;
 }
 
 void armRotateBy(float degrees) {
@@ -150,18 +160,25 @@ void openLatch(int16_t angle = 0) {
      * Opens the collection latch.
      * If an angle is specified it is opened to that angle.
      */
-    latch.write(angle);
+    latch1.write(angle);
+    latch2.write(angle);
     latchOpen = true;
 }
 
-void closeLatch(int16_t angle = 120) {
+void closeLatch(int16_t angle = 90) {
     /*
      * closeLatch()
      * ===========
      * Closes the collection latch.
      * If an angle is specified it is closed to that angle.
      */
-    latch.write(angle);
+    for (uint16_t x = 30; x > 0; x--) {
+      latch1.write(angle - (angle*x)/30);
+      latch2.write(angle - (angle*x)/30);
+      delay(freq);
+    }
+    latch1.write(angle);
+    latch2.write(angle);
     latchOpen = false;
 }
 
@@ -173,21 +190,34 @@ void driveToSide() {
      */
     digitalWrite(DC_MOTOR_PIN1, HIGH);
     digitalWrite(DC_MOTOR_PIN2, LOW);
+    digitalWrite(DC_MOTOR_PIN3, HIGH);
+    digitalWrite(DC_MOTOR_PIN4, LOW);
     // Set motor to drive
-    digitalWrite(DC_MOTOR_ENABLE, HIGH);
-    // Wait until correct switch is pressed
+    digitalWrite(DC_MOTOR1_ENABLE, HIGH);
+    digitalWrite(DC_MOTOR2_ENABLE, HIGH);
+    // Wait until switch is pressed
     waitForLimitPress();
     // Set motor to stop
-    digitalWrite(DC_MOTOR_ENABLE, LOW);
+    digitalWrite(DC_MOTOR1_ENABLE, LOW);
+    digitalWrite(DC_MOTOR2_ENABLE, LOW);
 }
 
-void waitForLimitPress() {
+
+// Functions used to wait for conditions.
+void waitForLimitPress(int32_t timeout = 0) {
     /*
-   * waitForLimitPress()
-   * ===================
-   * Enter a loop until the limit switch is pressed.
-   */
-    while (!digitalRead(LIMIT_SWITCH_PIN)) { delay(10); }
+     * waitForLimitPress()
+     * ===================
+     * Enter a loop until the limit switch is pressed.
+     * If a timeout is provided then the function will also return after that amount of time in ms.
+     */
+    int32_t startTime = millis();
+    while (!digitalRead(LIMIT_SWITCH_PIN)) {
+        if (timeout && millis() >= startTime+timeout) {
+            return;
+        }
+        delay(10);
+    }
 }
 
 void waitForIRSense() {
@@ -198,6 +228,7 @@ void waitForIRSense() {
    */
     while (digitalRead(IR_SENSOR_PIN)) { delay(10); }
 }
+
 
 void moveToPosition(float rotation, int16_t elevation, int16_t extension) {
     /*
@@ -210,6 +241,7 @@ void moveToPosition(float rotation, int16_t elevation, int16_t extension) {
     std::thread t1(armRotateBy, rotation);
     std::thread t2(armExtendBy, extension);
     std::thread t3(changeHeightBy, elevation);
+    // Wait for all three to be done.
     t1.join();
     t2.join();
     t3.join();
@@ -220,14 +252,18 @@ void setup() {
     arm_extension.attach(ARM_EXTENSION_PIN);
     elevator1.attach(ELEVATOR1_PIN);
     elevator2.attach(ELEVATOR2_PIN);
-    latch.attach(LATCH_SERVO_PIN);
+    latch1.attach(LATCH_SERVO1_PIN);
+    latch2.attach(LATCH_SERVO2_PIN);
     // Set stepper outputs
     pinMode(ROTATING_PLATE_DIR, OUTPUT);
     pinMode(ROTATING_PLATE_STEP, OUTPUT);
     // Set DC motor outputs
     pinMode(DC_MOTOR_PIN1, OUTPUT);
     pinMode(DC_MOTOR_PIN2, OUTPUT);
-    pinMode(DC_MOTOR_ENABLE, OUTPUT);
+    pinMode(DC_MOTOR_PIN3, OUTPUT);
+    pinMode(DC_MOTOR_PIN4, OUTPUT);
+    pinMode(DC_MOTOR1_ENABLE, OUTPUT);
+    pinMode(DC_MOTOR2_ENABLE, OUTPUT);
     // Set limit switch to input
     pinMode(LIMIT_SWITCH_PIN, INPUT_PULLDOWN);
     // Reset extension and height variables
@@ -332,10 +368,11 @@ void COLLECT() {
 
 void loop() {
     /*
-          _,,        
-          "-.\=       
-            \\=   _.~ 
-            _|/||||)_ 
-    ejm97  \        \    
-    */
+     * Prancing in the great paddock in the sky.
+     *     _,,        
+     *    "-.\=       
+     *      \\=   _.~ 
+     *      _|/||||)_ 
+     *ejm97 \        \    
+      */
 }
