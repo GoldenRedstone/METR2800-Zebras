@@ -14,7 +14,7 @@ mrf  (_(_.'(_.'(_.'
  ====================
    METR2800 ZEBRAS
  Alistair, Oliver, Bailey, Wilbur, Gideon, Jestin
- Modified 2024-05-17
+ Modified 2024-05-20
  By Gideon McKinlay
  */
 
@@ -52,22 +52,26 @@ Servo elevator1;
 Servo elevator2;
 Servo latch;
 
-uint8_t ex_speed = 50;
-uint8_t el_speed = 20;
-uint8_t freq = 1;
+int8_t ex_speed = 50;
+int8_t el_speed = 20;
+int8_t freq = 1;
 
-uint16_t currentExtension;
-uint16_t currentHeight;
-uint8_t currentRotation;
+float grav_compensation = 1.3;
+
+int16_t currentExtension;
+int16_t currentHeight;
+int16_t currentRotation;
 bool latchOpen;
 
-int sign(int x) {
-    /*
-   * Returns the sign of a number.
-   * x > 0: 1
-   * x = 0: 0
-   * x < 0: -1
-   */
+int8_t sign(int16_t x) {
+   /*
+    * sign()
+    * ======
+    * Returns the sign of a number.
+    * x > 0: 1
+    * x = 0: 0
+    * x < 0: -1
+    */
     if (x > 0) { return 1; }
     if (x < 0) { return -1; }
     return 0;
@@ -95,7 +99,7 @@ void armExtendBy(int16_t duration) {
      * duration is an integer number in ms.
      */
     int8_t direction = sign(duration);
-    uint16_t magnitude = abs(duration);
+    int16_t magnitude = (50 * abs(duration)) / el_speed;
     arm_extension.write(90 + ex_speed * direction);
     delay(magnitude);
     arm_extension.write(90);
@@ -107,11 +111,12 @@ void changeHeightBy(int16_t duration) {
      * ================
      * Extends the arm vertically for the given duration.
      * duration is an integer number in ms.
+     * Positive is upwards, negative is downwards.
      */
     int8_t direction = sign(duration);
-    uint16_t magnitude = abs(duration);
-    elevator1.write(90 + el_speed * direction);
-    elevator2.write(90 + el_speed * direction);
+    int16_t magnitude = (20 * abs(duration)) / el_speed;
+    elevator1.write(90 - el_speed * direction);
+    elevator2.write(90 - el_speed * direction);
     delay(magnitude);
     elevator1.write(90);
     elevator2.write(90);
@@ -129,7 +134,7 @@ void armRotateBy(float degrees) {
     // Choose the direction
     int8_t direction = (cycles > 0) ? ANTICLOCKWISE : CLOCKWISE;
     digitalWrite(ROTATING_PLATE_DIR, direction);
-    for (uint16_t x = 0; x <= abs(cycles); x++) {
+    for (int16_t x = 0; x <= abs(cycles); x++) {
         digitalWrite(ROTATING_PLATE_STEP, HIGH);
         delay(freq);
         digitalWrite(ROTATING_PLATE_STEP, LOW);
@@ -138,7 +143,7 @@ void armRotateBy(float degrees) {
     currentRotation = currentRotation + degrees;
 }
 
-void openLatch(uint8_t angle = 0) {
+void openLatch(int16_t angle = 0) {
     /*
      * openLatch()
      * ===========
@@ -149,7 +154,7 @@ void openLatch(uint8_t angle = 0) {
     latchOpen = true;
 }
 
-void closeLatch(uint8_t angle = 120) {
+void closeLatch(int16_t angle = 120) {
     /*
      * closeLatch()
      * ===========
@@ -194,7 +199,7 @@ void waitForIRSense() {
     while (digitalRead(IR_SENSOR_PIN)) { delay(10); }
 }
 
-void moveToPosition(float rotation, uint8_t elevation, uint8_t extension) {
+void moveToPosition(float rotation, int16_t elevation, int16_t extension) {
     /*
      * moveToPosition()
      * ================
@@ -203,11 +208,11 @@ void moveToPosition(float rotation, uint8_t elevation, uint8_t extension) {
      */
     // Uses three threads to do the three motions so that the resultant motion occurs in parallel.
     std::thread t1(armRotateBy, rotation);
-    // std::thread t2(armExtendBy, extension);
-    // std::thread t3(changeHeightBy, elevation);
+    std::thread t2(armExtendBy, extension);
+    std::thread t3(changeHeightBy, elevation);
     t1.join();
-    // t2.join();
-    // t3.join();
+    t2.join();
+    t3.join();
 }
 
 void setup() {
@@ -235,47 +240,21 @@ void setup() {
 }
 
 void COLLECT() {
-    // Starts in "neutral" position
-    // Wait until operation is started
-    // while (!digitalRead(LIMIT_SWITCH_PIN)) { delay(10); }
-
-    // Moves to measurement position.
-    // closeLatch();
-    // elevator1.write(90 - el_speed);
-    // elevator2.write(90 - el_speed);
-    // delay(1500);
-    // elevator1.write(90);
-    // elevator2.write(90);
-
-    // arm_extension.write(90 + ex_speed);
-    // delay(1500);
-    // arm_extension.write(90);
-
     // Wait for signal to start
     while (!digitalRead(LIMIT_SWITCH_PIN)) { delay(10); }
-
-    // Moves to "neutral" position.
-    // elevator1.write(90 + el_speed);
-    // elevator2.write(90 + el_speed);
-    // delay(1500);
-    // elevator1.write(90);
-    // elevator2.write(90);
-
-    // arm_extension.write(90 - ex_speed);
-    // delay(1500);
-    // arm_extension.write(90);
 
     // Move to first target
     armRotateBy(120);
 
     delay(500);
 
-    elevator1.write(90 - el_speed);
-    elevator2.write(90 - el_speed);
-    delay(1000);
-    elevator1.write(90);
-    elevator2.write(90);
-    openLatch();
+    changeHeightBy(1300);
+    // elevator1.write(90 + el_speed);
+    // elevator2.write(90 + el_speed);
+    // delay(1300);
+    // elevator1.write(90);
+    // elevator2.write(90);
+    // openLatch();
 
     armRotateBy(60);
 
@@ -290,11 +269,12 @@ void COLLECT() {
 
     delay(500);
 
-    elevator1.write(90 + el_speed);
-    elevator2.write(90 + el_speed);
-    delay(1000);
-    elevator1.write(90);
-    elevator2.write(90);
+    changeHeightBy(-1000);
+    // elevator1.write(90 - el_speed);
+    // elevator2.write(90 - el_speed);
+    // delay(1000);
+    // elevator1.write(90);
+    // elevator2.write(90);
 
     armRotateBy(-120);
 
@@ -312,11 +292,12 @@ void COLLECT() {
 
     delay(500);
 
-    elevator1.write(90 - el_speed);
-    elevator2.write(90 - el_speed);
-    delay(1000);
-    elevator1.write(90);
-    elevator2.write(90);
+    changeHeightBy(1300);
+    // elevator1.write(90 + el_speed);
+    // elevator2.write(90 + el_speed);
+    // delay(1300);
+    // elevator1.write(90);
+    // elevator2.write(90);
 
     armRotateBy(-60);
 
@@ -331,11 +312,12 @@ void COLLECT() {
 
     delay(500);
 
-    elevator1.write(90 + el_speed);
-    elevator2.write(90 + el_speed);
-    delay(1000);
-    elevator1.write(90);
-    elevator2.write(90);
+    changeHeightBy(-1000);
+    // elevator1.write(90 - el_speed);
+    // elevator2.write(90 - el_speed);
+    // delay(1000);
+    // elevator1.write(90);
+    // elevator2.write(90);
 
     armRotateBy(45);
 
@@ -351,9 +333,9 @@ void COLLECT() {
 void loop() {
     /*
           _,,        
-          "-.\=                    _.-'""`-,_     _._ 
-            \\=   _.~        |\-`/|       )`,_.'.-,)
-            _|/||||)_        (o o , )'-( / `-.-'    
-    ejm97  \        \        -`"'_'/    -'          
+          "-.\=       
+            \\=   _.~ 
+            _|/||||)_ 
+    ejm97  \        \    
     */
 }
