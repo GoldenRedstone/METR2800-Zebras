@@ -34,8 +34,8 @@ mrf  (_(_.'(_.'(_.'
 #define DC_MOTOR_PIN2 27
 #define DC_MOTOR_PIN3 22
 #define DC_MOTOR_PIN4 25
-#define DC_MOTOR1_ENABLE 14
-#define DC_MOTOR2_ENABLE 34
+#define DC_MOTOR1_ENABLE 18
+#define DC_MOTOR2_ENABLE 14
 // SG90 Servo
 #define LATCH_SERVO1_PIN 4
 #define LATCH_SERVO2_PIN 5
@@ -54,9 +54,9 @@ Servo latch1;
 Servo latch2;
 
 // Set speeds
-int8_t ex_speed = 50;   // Speed of extending arm. Larger is faster. 50 is almost max.
-int8_t el_speed = 20;   // Speed of elevator. Larger is faster. 50 is almost max.
-int8_t freq = 1;        // Frequency of rotating plate. Smaller is faster.
+int8_t ex_speed = 50;  // Speed of extending arm. Larger is faster. 50 is almost max.
+int8_t el_speed = 20;  // Speed of elevator. Larger is faster. 50 is almost max.
+int8_t freq = 1;       // Frequency of rotating plate. Smaller is faster.
 
 float grav_comp = 1.3;  // Compensate for elevator faster going down.
 
@@ -165,7 +165,7 @@ void openLatch(int16_t angle = 0) {
     latchOpen = true;
 }
 
-void closeLatch(int16_t angle = 90) {
+void closeLatch(int16_t angle = 60) {
     /*
      * closeLatch()
      * ===========
@@ -173,30 +173,55 @@ void closeLatch(int16_t angle = 90) {
      * If an angle is specified it is closed to that angle.
      */
     for (uint16_t x = 30; x > 0; x--) {
-      latch1.write(angle - (angle*x)/30);
-      latch2.write(angle - (angle*x)/30);
-      delay(freq);
+        latch1.write(angle - (angle * x) / 30 + 20);
+        latch2.write(angle - (angle * x) / 30);
+        delay(30);
     }
-    latch1.write(angle);
+    latch1.write(angle + 30);
     latch2.write(angle);
     latchOpen = false;
 }
 
-void driveToSide() {
+void driveToSide(int16_t duration) {
     /*
      * driveToSide()
      * =============
-     * Engages the DC motors until the contact switch is pressed.
+     * Engages the DC motors for the given duration.
+     * Used to move from first side of the track to
+     *  the other.
      */
+    // Set directions
     digitalWrite(DC_MOTOR_PIN1, HIGH);
     digitalWrite(DC_MOTOR_PIN2, LOW);
+    digitalWrite(DC_MOTOR_PIN3, LOW);
+    digitalWrite(DC_MOTOR_PIN4, HIGH);
+    // Set motor to drive
+    digitalWrite(DC_MOTOR1_ENABLE, HIGH);
+    digitalWrite(DC_MOTOR2_ENABLE, HIGH);
+    // Wait for the given duration
+    delay(duration);
+    // Set motor to stop
+    digitalWrite(DC_MOTOR1_ENABLE, LOW);
+    digitalWrite(DC_MOTOR2_ENABLE, LOW);
+}
+
+void driveNudge(int16_t duration) {
+    /*
+     * driveNudge()
+     * =============
+     * Engages the DC motors for the given duration.
+     * Used to move closer to the first side.
+     */
+    // Set directions
+    digitalWrite(DC_MOTOR_PIN1, LOW);
+    digitalWrite(DC_MOTOR_PIN2, HIGH);
     digitalWrite(DC_MOTOR_PIN3, HIGH);
     digitalWrite(DC_MOTOR_PIN4, LOW);
     // Set motor to drive
     digitalWrite(DC_MOTOR1_ENABLE, HIGH);
     digitalWrite(DC_MOTOR2_ENABLE, HIGH);
-    // Wait until switch is pressed
-    waitForLimitPress();
+    // Wait for the given duration
+    delay(duration);
     // Set motor to stop
     digitalWrite(DC_MOTOR1_ENABLE, LOW);
     digitalWrite(DC_MOTOR2_ENABLE, LOW);
@@ -213,9 +238,7 @@ void waitForLimitPress(int32_t timeout = 0) {
      */
     int32_t startTime = millis();
     while (!digitalRead(LIMIT_SWITCH_PIN)) {
-        if (timeout && millis() >= startTime+timeout) {
-            return;
-        }
+        if (timeout && millis() >= startTime + timeout) { return; }
         delay(10);
     }
 }
@@ -235,7 +258,7 @@ void moveToPosition(float rotation, int16_t elevation, int16_t extension) {
      * moveToPosition()
      * ================
      * Moves the rotating plate to the given rotation, extends the arm to the given extension,
-     * and raises the arm to the given elevation.
+     *  and raises the arm to the given elevation.
      */
     // Uses three threads to do the three motions so that the resultant motion occurs in parallel.
     std::thread t1(armRotateBy, rotation);
@@ -271,102 +294,137 @@ void setup() {
     currentHeight = 0;
     currentRotation = 0;
     latchOpen = false;
-
-    COLLECT();
 }
 
 void COLLECT() {
-    // Wait for signal to start
-    while (!digitalRead(LIMIT_SWITCH_PIN)) { delay(10); }
-
-    // Move to first target
-    armRotateBy(120);
-
-    delay(500);
-
-    changeHeightBy(1300);
-    // elevator1.write(90 + el_speed);
-    // elevator2.write(90 + el_speed);
-    // delay(1300);
-    // elevator1.write(90);
-    // elevator2.write(90);
-    // openLatch();
-
-    armRotateBy(60);
-
-    arm_extension.write(90 - ex_speed);
-    delay(2000);
-    arm_extension.write(90);
-
-    closeLatch();
-    delay(500);
-    // Move to hole
-    armRotateBy(-60);
-
-    delay(500);
-
-    changeHeightBy(-1000);
-    // elevator1.write(90 - el_speed);
-    // elevator2.write(90 - el_speed);
-    // delay(1000);
-    // elevator1.write(90);
-    // elevator2.write(90);
-
-    armRotateBy(-120);
 
     openLatch();
 
-    delay(1000);
+    driveNudge(600);  // Nudge Forward
 
-    arm_extension.write(90 + ex_speed);
-    delay(2000);
-    arm_extension.write(90);
+    armRotateBy(17);  // Positive rotate, move in line with closest ball
 
+    armExtendBy(-775);  // Extend Arm past the edge of the robot
 
-    // Second target time!
-    armRotateBy(-45);
+    armExtendBy(-700);  // Extend Arm as far as possible
 
-    delay(500);
+    changeHeightBy(800);  // Lower the collection tube to the ground
 
-    changeHeightBy(1300);
-    // elevator1.write(90 + el_speed);
-    // elevator2.write(90 + el_speed);
-    // delay(1300);
-    // elevator1.write(90);
-    // elevator2.write(90);
+    delay(100);
 
-    armRotateBy(-60);
+    closeLatch();  // Capture the ball
 
-    arm_extension.write(90 - ex_speed);
-    delay(2000);
-    arm_extension.write(90);
+    armRotateBy(90);  // Move over the hole ~90
+
+    armExtendBy(700);  // Retract the arm Slightly
+
+    openLatch();  // Deposit Ball
+
+    delay(2500);  // Allow time to fall
+
+    // Second ball time!
+    // ------------------------------
+
+    changeHeightBy(-500);
+
+    armExtendBy(100);  // Retract arm so we dont knock the other ground ball
+
+    armRotateBy(175);  // Rotate to the other floor ball
+
+    armExtendBy(-800);  // Get as close to the ball as possible
+
+    delay(100);  // Allow time for ball to settle
+
+    closeLatch();  // Capture Ball
+
+    armRotateBy(-180);  // Rotate back to the hole
+
+    armExtendBy(600);  // Pull back the arm slightly
+
+    openLatch();  // Deposit second ball
+
+    delay(5000);  // Allow time to fall
+
+    // Disturb elevated ball
+    // ---------------------------------
+
+    changeHeightBy(-800);
+
+    armExtendBy(200);  //Pull arm in to prepare for raised ball disturb
 
     closeLatch();
-    delay(500);
-    // Move to hole
-    armRotateBy(60);
 
-    delay(500);
+    armRotateBy(-125);  //Rotate the arm to just next to the raised ball
 
-    changeHeightBy(-1000);
-    // elevator1.write(90 - el_speed);
-    // elevator2.write(90 - el_speed);
-    // delay(1000);
-    // elevator1.write(90);
-    // elevator2.write(90);
+    changeHeightBy(-1000);  // Rise up and disturb the ball
 
-    armRotateBy(45);
+    armRotateBy(205);
 
     openLatch();
 
-    delay(1000);
+    // Collecting a third ball!
+    // -----------------------------
 
-    arm_extension.write(90 + ex_speed);
-    delay(2000);
-    arm_extension.write(90);
+    driveToSide(6100);  // Drive to other side
+
+    changeHeightBy(900);
+
+    armExtendBy(-750);
+
+    delay(100);
+
+    closeLatch();
+
+    armRotateBy(178);
+
+    delay(100);
+
+    openLatch();
+
+
+    /*
+  changeHeightBy();   // Flush with the ground again
+
+  driveToSide();      // Drive to the other side
+
+  armRotateBy();      // In line with ground ball
+
+  armExtendBy();      // Extend as much as possible
+
+  closeLatch();       // Grab ball
+
+  armRotateBy();      // Move Over Hole
+
+  armExtendBy();      // Retract the arm Slightly
+
+  openLatch();        // Deposit ball
+
+  delay(5000);        // Allow time to fall
+
+  armExtendBy();      // Retract arm so we dont knock the other ground ball
+
+  armRotateBy();      // Rotate to the other floor ball 
+
+  armExtendBy();      // Get as close to the ball as possible
+
+  closeLatch();       // Capture Ball
+
+  armRotateBy();      // Rotate back to the hole 
+
+  armExtendBy();      // Retract the arm Slightly
+
+  openLatch();        // Deposit Ball
+
+  delay(5000);        // Allow time to fall
+  */
 }
 
 void loop() {
+
+    waitForLimitPress();
+
+    COLLECT();
+
     /*
      * Prancing in the great paddock in the sky.
      *     _,,        
@@ -374,5 +432,5 @@ void loop() {
      *      \\=   _.~ 
      *      _|/||||)_ 
      *ejm97 \        \    
-      */
+     */
 }
